@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DAT to Excel Converter</title>
+    <style>
+        .dropzone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>DAT to Excel Converter</h1>
+    <form action="/convert" enctype="multipart/form-data" method="post">
+        <div class="dropzone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+            <p>Drag and drop a .dat file here or click to select a file</p>
+            <input type="file" name="file" accept=".dat" onchange="submitForm(event);" style="display: none;">
+        </div>
+    </form>
+
+    <script>
+        function dropHandler(ev) {
+            ev.preventDefault();
+            if (ev.dataTransfer.items) {
+                if (ev.dataTransfer.items[0].kind === 'file') {
+                    var file = ev.dataTransfer.items[0].getAsFile();
+                    var formData = new FormData();
+                    formData.append('file', file);
+                    submitFormData(formData);
+                }
+            }
+        }
+
+        function dragOverHandler(ev) {
+            ev.preventDefault();
+        }
+
+        function submitForm(ev) {
+            var file = ev.target.files[0];
+            var formData = new FormData();
+            formData.append('file', file);
+            submitFormData(formData);
+        }
+
+        function submitFormData(formData) {
+            fetch('/convert', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'output.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            });
+        }
+    </script>
+</body>
+</html>
