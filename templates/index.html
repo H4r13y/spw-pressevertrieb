@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>DAT to Excel Converter</title>
     <style>
@@ -11,6 +12,7 @@
         }
     </style>
 </head>
+
 <body>
     <h1>DAT to Excel Converter</h1>
     <form action="/convert" enctype="multipart/form-data" method="post">
@@ -49,17 +51,28 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.blob())
-            .then(blob => {
-                var url = window.URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = 'output.xlsx';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            });
+                .then(response => {
+                    const disposition = response.headers.get('Content-Disposition');
+                    let filename = 'output.xlsx';
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        const matches = /filename="([^"]*)"/.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1];
+                        }
+                    }
+                    return response.blob().then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                    });
+                });
         }
+
     </script>
 </body>
+
 </html>

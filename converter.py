@@ -4,21 +4,27 @@ import re
 from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
+import logging
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
+logging.basicConfig(level=logging.INFO)
+
 @app.post("/convert")
 async def convert_file(file: UploadFile = File(...)):
+    logging.info("File upload received.")
+    
     # Datei einlesen
     data = await file.read()
-    try:
-        data = data.decode('utf-8')
-    except UnicodeDecodeError:
-        data = data.decode('ISO-8859-1')  # Alternativer Zeichensatz
+    
+    # Datei als ISO-8859-1 (ANSI) dekodieren
+    data = data.decode('ISO-8859-1', errors="ignore")  # Alternativer Zeichensatz
+    logging.info("File decoded using ISO-8859-1.")
 
     # Datei in Zeilen aufteilen
     lines = data.split('\n')
+    logging.info(f"File split into {len(lines)} lines.")
 
     # Artikelinformationen extrahieren
     articles = []
@@ -38,6 +44,8 @@ async def convert_file(file: UploadFile = File(...)):
             }
             articles.append(article)
 
+    logging.info(f"Extracted {len(articles)} articles.")
+
     # DataFrame erstellen
     df = pd.DataFrame(articles)
 
@@ -49,6 +57,8 @@ async def convert_file(file: UploadFile = File(...)):
             filiale_info = f"Filiale_{filiale_data[2]}_Standort_{filiale_data[7]}"
             break
 
+    logging.info(f"Filialinformationen: {filiale_info}")
+
     # Datum und Lieferscheinnummer extrahieren
     datum = ''
     lieferscheinnummer = ''
@@ -59,21 +69,23 @@ async def convert_file(file: UploadFile = File(...)):
             lieferscheinnummer = pg320_data[3]
             break
 
-    # Neue Zeile mit Informationen erstellen
-    new_row = {
-        'EAN': 'Informationen',
-        'Objektnummer': '',
-        'Objektbezeichnung': '',
-        'Ausgnr': '',
-        'VKP Verkaufspreis': '',
-        'AGP Einkaufspreis': '',
-        'Menge': '',
-        'Gesamt': '',
-        'MWST': f"{filiale_info} {datum} {lieferscheinnummer}"
-    }
+    logging.info(f"Datum: {datum}, Lieferscheinnummer: {lieferscheinnummer}")
 
-    # Neue Zeile an den Anfang des DataFrames einfügen
-    df = pd.concat([pd.DataFrame([new_row]), df], ignore_index=True)
+    # # Neue Zeile mit Informationen erstellen
+    # new_row = {
+    #     'EAN': 'Informationen',
+    #     'Objektnummer': '',
+    #     'Objektbezeichnung': '',
+    #     'Ausgnr': '',
+    #     'VKP Verkaufspreis': '',
+    #     'AGP Einkaufspreis': '',
+    #     'Menge': '',
+    #     'Gesamt': '',
+    #     'MWST': f"{filiale_info} {datum} {lieferscheinnummer}"
+    # }
+
+    # # Neue Zeile an den Anfang des DataFrames einfügen
+    # df = pd.concat([pd.DataFrame([new_row]), df], ignore_index=True)
 
     # Excel-Datei in Arbeitsspeicher schreiben
     excel_file = io.BytesIO()
@@ -92,14 +104,17 @@ async def convert_file(file: UploadFile = File(...)):
         lieferscheinnummer = "Unbekannte_Lieferscheinnummer"
 
     filename = f"{filiale_info}_{datum}_{lieferscheinnummer}.xlsx"
-    filename = re.sub(r'[^a-zA-Z0-9_\.]', '_', filename)  # Replace non-alphanumeric characters
+    filename = re.sub(r'[^a-zA-Z0-9_\.]', '_', filename)  # Nicht-alphanumerische Zeichen ersetzen
 
     headers = {
         'Content-Disposition': f'attachment; filename="{filename}"'
     }
 
+    logging.info(f"Returning file {filename}.")
+
     return StreamingResponse(excel_file, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.get("/", response_class=HTMLResponse)
 async def main(request: Request):
+    logging.info("Serving main page.")
     return templates.TemplateResponse("index.html", {"request": request})
